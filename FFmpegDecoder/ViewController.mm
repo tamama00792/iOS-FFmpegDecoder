@@ -26,7 +26,9 @@
     //由于我们在iOS平台编译的ffmpeg 没有打开mp3的decoder开关，但是打开了aac的 所以这里使用aac来做测试
     const char* mp3FilePath = [[CommonUtil bundlePath:@"131.aac"] cStringUsingEncoding:NSUTF8StringEncoding];
     const char *pcmFilePath = [[CommonUtil documentsPath:@"131.pcm"] cStringUsingEncoding:NSUTF8StringEncoding];
+    // 初始化解码控制器
     AccompanyDecoderController* decoderController = new AccompanyDecoderController();
+    // 初始化文件
     decoderController->Init(mp3FilePath, pcmFilePath);
     decoderController->Decode();
     decoderController->Destroy();

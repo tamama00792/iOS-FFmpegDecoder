@@ -2,18 +2,27 @@
 
 #define LOG_TAG "AccompanyDecoderController"
 
+/// 初始化解码控制器
 AccompanyDecoderController::AccompanyDecoderController() {
+    // 解码器置空
 	accompanyDecoder = NULL;
+    // 解码文件置空
 	pcmFile = NULL;
 }
 
 AccompanyDecoderController::~AccompanyDecoderController() {
 }
 
+/// 初始化
+/// - Parameters:
+///   - accompanyPath: 源文件目录
+///   - pcmFilePath: 解码文件目录
 void AccompanyDecoderController::Init(const char* accompanyPath, const char* pcmFilePath) {
-	//初始化两个decoder
+	// 初始化两个decoder
 	AccompanyDecoder* tempDecoder = new AccompanyDecoder();
+    // 声明存放采样率和的数组
 	int accompanyMetaData[2];
+    
 	tempDecoder->getMusicMeta(accompanyPath, accompanyMetaData);
 	delete tempDecoder;
 	//初始化伴奏的采样率
