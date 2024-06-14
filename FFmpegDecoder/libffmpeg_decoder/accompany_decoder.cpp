@@ -187,18 +187,26 @@ AudioPacket* AccompanyDecoder::decodePacket(){
 
 int AccompanyDecoder::readSamples(short* samples, int size) {
 	if(seek_req){
+        // 如果有seek请求，则将指针移动到当前已读取的size处，强制下一次执行去readFrame
 		audioBufferCursor = audioBufferSize;
 	}
 	int sampleSize = size;
 	while(size > 0){
+        
 		if(audioBufferCursor < audioBufferSize){
+            // 如果存在读取的帧数据，走这个分支
+            // 获取数据大小
 			int audioBufferDataSize = audioBufferSize - audioBufferCursor;
+            // 取剩余数据和请求的数据的最小值去拷贝
 			int copySize = MIN(size, audioBufferDataSize);
+            
 			memcpy(samples + (sampleSize - size), audioBuffer + audioBufferCursor, copySize * 2);
 			size -= copySize;
 			audioBufferCursor += copySize;
 		} else{
+            // 如果没有未处理的帧数据，则走这个分支
 			if(readFrame() < 0){
+                // 如果读取失败则break
 				break;
 			}
 		}
@@ -218,6 +226,7 @@ void AccompanyDecoder::seek_frame(){
 	float currentPosition = position;
 	float frameDuration = duration;
 	if(targetPosition < currentPosition){
+        // 如果要往前退，则直接重新创建，从起始点往后找位置
 		this->destroy();
 		this->init(accompanyFilePath);
 		//TODO:这里GT的测试样本会差距25ms 不会累加
@@ -225,8 +234,11 @@ void AccompanyDecoder::seek_frame(){
 	}
 	int readFrameCode = -1;
 	while (true) {
+        // 初始化音频包
 		av_init_packet(&packet);
+        // 读取帧
 		readFrameCode = av_read_frame(avFormatContext, &packet);
+        // 如果读取到了帧，则累加帧的持续时长，直到超过目标seek时间为止
 		if (readFrameCode >= 0) {
 			currentPosition += frameDuration;
 			if (currentPosition >= targetPosition) {
@@ -234,6 +246,7 @@ void AccompanyDecoder::seek_frame(){
 			}
 		}
 //		LOGI("currentPosition is %.3f", currentPosition);
+        // 释放音频包
 		av_free_packet(&packet);
 	}
 	seek_resp = true;
@@ -247,14 +260,21 @@ int AccompanyDecoder::readFrame() {
 		this->seek_frame();
 	}
 	int ret = 1;
+    // 初始化一个数据包
 	av_init_packet(&packet);
+    // 用于记录是否获取到了帧数据
 	int gotframe = 0;
+    // 用于记录读取帧是否发生了错误
 	int readFrameCode = -1;
 	while (true) {
+        // 从上下文读取一帧数据存入到数据包里
 		readFrameCode = av_read_frame(avFormatContext, &packet);
 //		LOGI(" av_read_frame ...", duration);
 		if (readFrameCode >= 0) {
+            // 走到这个分支说明读取帧数据成功
 			if (packet.stream_index == stream_index) {
+                // 走到这个分支说明数据包的流id和期望读取的流id一致
+                // 对packet进行解码，将解码后的存入pAudioFrame中，并返回解码的数据长度
 				int len = avcodec_decode_audio4(avCodecContext, pAudioFrame,
 						&gotframe, &packet);
 //				LOGI(" avcodec_decode_audio4 ...", duration);
@@ -262,19 +282,25 @@ int AccompanyDecoder::readFrame() {
 					LOGI("decode audio error, skip packet");
 				}
 				if (gotframe) {
+                    // 走到这个分支说明获取到了帧
 					int numChannels = OUT_PUT_CHANNELS;
 					int numFrames = 0;
 					void * audioData;
 					if (swrContext) {
+                        // 走到这个分支说明需要重采样
 						const int ratio = 2;
+                        // 根据通道、采用格式、采用频率来获取数据的大小
 						const int bufSize = av_samples_get_buffer_size(NULL,
 								numChannels, pAudioFrame->nb_samples * ratio,
 								AV_SAMPLE_FMT_S16, 1);
+                        // 第一次执行到这里时会设置重采样的大小以及开辟空间
 						if (!swrBuffer || swrBufferSize < bufSize) {
 							swrBufferSize = bufSize;
 							swrBuffer = realloc(swrBuffer, swrBufferSize);
 						}
+                        // 开辟空间
 						byte *outbuf[2] = { (byte*) swrBuffer, NULL };
+                        // 进行重采样转换，将转换后的结果记录在outbuf的空间里，并返回帧的数量
 						numFrames = swr_convert(swrContext, outbuf,
 								pAudioFrame->nb_samples * ratio,
 								(const uint8_t **) pAudioFrame->data,
@@ -284,42 +310,59 @@ int AccompanyDecoder::readFrame() {
 							ret = -1;
 							break;
 						}
+                        // 记录重采样的数据
 						audioData = swrBuffer;
 					} else {
+                        // 走到这个分支说明不需要重采样
 						if (avCodecContext->sample_fmt != AV_SAMPLE_FMT_S16) {
 							LOGI("bucheck, audio format is invalid");
 							ret = -1;
 							break;
 						}
+                        // 直接获取音频数据和帧数量
 						audioData = pAudioFrame->data[0];
 						numFrames = pAudioFrame->nb_samples;
 					}
 					if(isNeedFirstFrameCorrectFlag && position >= 0){
+                        // 如果需要修正第一帧且位置大于等于0会走这个分支（position默认是-1，第一次不会走这里）
+                        // 计算期望的位置
 						float expectedPosition = position + duration;
+                        // 获取帧的最可能所在的时间戳，并乘以时基，计算出最有可能在的位置
 						float actualPosition = av_frame_get_best_effort_timestamp(pAudioFrame) * timeBase;
+                        // 计算差值
 						firstFrameCorrectionInSecs = actualPosition - expectedPosition;
+                        // 去除首帧修复的标记
 						isNeedFirstFrameCorrectFlag = false;
 					}
+                    // 获取当前帧的持续时间
 					duration = av_frame_get_pkt_duration(pAudioFrame) * timeBase;
+                    // 获取帧最可能所在的恶时间戳，并修正误差
 					position = av_frame_get_best_effort_timestamp(pAudioFrame) * timeBase - firstFrameCorrectionInSecs;
 					if (!seek_success_read_frame_success) {
+                        // 如果没标记seek后readFrame成功，则标记一下，并记录实际seek的位置
 						LOGI("position is %.6f", position);
 						actualSeekPosition = position;
 						seek_success_read_frame_success = true;
 					}
+                    // 获取数据大小
 					audioBufferSize = numFrames * numChannels;
 //					LOGI(" \n duration is %.6f position is %.6f audioBufferSize is %d\n", duration, position, audioBufferSize);
+                    // 获取数据
 					audioBuffer = (short*) audioData;
+                    // 重置指针
 					audioBufferCursor = 0;
 					break;
 				}
 			}
 		} else {
+            // 走到这个分支说明读取帧数据失败，记录结果为失败并退出循环
 			ret = -1;
 			break;
 		}
 	}
+    // 释放数据包空间
 	av_free_packet(&packet);
+    // 返回执行结果
 	return ret;
 }
 

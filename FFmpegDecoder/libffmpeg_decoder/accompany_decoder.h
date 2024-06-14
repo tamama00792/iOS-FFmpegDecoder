@@ -74,8 +74,11 @@ extern "C" {
 class AccompanyDecoder {
 private:
 	/** 如果使用了快进或者快退命令，则先设置以下参数 **/
+    // 是否请求了seek
 	bool seek_req;
+    // 是否完成seek
 	bool seek_resp;
+    // seek的秒数
 	float seek_seconds;
 
 	float actualSeekPosition;
@@ -95,7 +98,9 @@ private:
 	/** 每次解码出来的audioBuffer以及这个audioBuffer的时间戳以及当前类对于这个audioBuffer的操作情况 **/
 	short* audioBuffer;
 	float position;
+    // 当前读取的指针
 	int audioBufferCursor;
+    // 当前读取的大小
 	int audioBufferSize;
 	float duration;
 	bool isNeedFirstFrameCorrectFlag;
