@@ -19,6 +19,7 @@ protected:
 
 	/** 伴奏和原唱的采样频率与解码伴奏和原唱的每个packet的大小 **/
 	int accompanySampleRate;
+	// 包大小
 	int accompanyPacketBufferSize;
 public:
 	AccompanyDecoderController();

@@ -30,8 +30,11 @@
     AccompanyDecoderController* decoderController = new AccompanyDecoderController();
     // 初始化文件
     decoderController->Init(mp3FilePath, pcmFilePath);
+    // 解码
     decoderController->Decode();
+    // 销毁
     decoderController->Destroy();
+    // 释放内存
     delete decoderController;
     NSLog(@"After decode Test...");
 }

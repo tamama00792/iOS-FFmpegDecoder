@@ -125,7 +125,7 @@ int AccompanyDecoder::init(const char* audioFile) {
 	} else {
 		LOGI("sucess avformat_find_stream_info result is %d", result);
 	}
-	//4、判断是否需要resampler
+	//4、判断是否需要resampler重采样
 	if (!audioCodecIsSupported()) {
 		LOGI("because of audio Codec Is Not Supported so we will init swresampler...");
 		/**
@@ -140,8 +140,10 @@ int AccompanyDecoder::init(const char* audioFile) {
 		 * @param log_offset      logging level offset
 		 * @param log_ctx         parent logging context, can be NULL
 		 */
+		 // 设置重采样参数并初始化
 		swrContext = swr_alloc_set_opts(NULL, av_get_default_channel_layout(OUT_PUT_CHANNELS), AV_SAMPLE_FMT_S16, avCodecContext->sample_rate,
 				av_get_default_channel_layout(avCodecContext->channels), avCodecContext->sample_fmt, avCodecContext->sample_rate, 0, NULL);
+				// 如果初始化重采样上下文失败则释放资源返回
 		if (!swrContext || swr_init(swrContext)) {
 			if (swrContext)
 				swr_free(&swrContext);
@@ -151,12 +153,14 @@ int AccompanyDecoder::init(const char* audioFile) {
 		}
 	}
 	LOGI("channels is %d sampleRate is %d", avCodecContext->channels, avCodecContext->sample_rate);
+	// 初始化一个avframe
 	pAudioFrame = avcodec_alloc_frame();
 //	LOGI("leave AccompanyDecoder::init");
 	return 1;
 }
 
 bool AccompanyDecoder::audioCodecIsSupported() {
+// 判断是否为pcm格式
 	if (avCodecContext->sample_fmt == AV_SAMPLE_FMT_S16) {
 		return true;
 	}
