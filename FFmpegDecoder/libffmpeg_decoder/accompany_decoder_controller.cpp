@@ -2,7 +2,7 @@
 
 #define LOG_TAG "AccompanyDecoderController"
 
-/// 初始化解码控制器
+/// 创建解码控制器
 AccompanyDecoderController::AccompanyDecoderController() {
     // 解码器置空
 	accompanyDecoder = NULL;
